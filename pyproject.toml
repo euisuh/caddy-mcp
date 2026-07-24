@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "caddy-mcp-server"
+version = "0.1.0"
+description = "MCP server for safely inspecting and operating Caddy"
+readme = "README.md"
+requires-python = ">=3.12"
+license = "MIT"
+authors = [{name = "Euisuh Jeong"}]
+keywords = ["mcp", "caddy", "reverse-proxy", "homelab", "automation"]
+dependencies = [
+  "fastmcp>=2.0.0",
+  "httpx>=0.27.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/euisuh/caddy-mcp"
+Repository = "https://github.com/euisuh/caddy-mcp"
+Issues = "https://github.com/euisuh/caddy-mcp/issues"
+
+[project.scripts]
+caddy-mcp = "caddy_mcp.server:main"
+
+[tool.setuptools.packages.find]
+include = ["caddy_mcp", "caddy_mcp.*"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F"]
+ignore = ["E501"]
