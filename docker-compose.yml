@@ -1,0 +1,10 @@
+services:
+  caddy-mcp:
+    build: .
+    environment:
+      CADDY_ADMIN_URL: ${CADDY_ADMIN_URL:-http://host.docker.internal:2019}
+      MCP_TRANSPORT: sse
+      MCP_HOST: 0.0.0.0
+      MCP_PORT: 8000
+    ports:
+      - "127.0.0.1:8000:8000"
