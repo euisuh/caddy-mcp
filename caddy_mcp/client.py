@@ -12,7 +12,8 @@ class CaddyAPIError(RuntimeError):
 
     def __init__(self, method: str, path: str, status_code: int, detail: str = "") -> None:
         safe_detail = "" if not detail else " Response body redacted."
-        super().__init__(f"Caddy admin API {method} {path} failed with {status_code}.{safe_detail}")
+        outcome = "was unreachable" if status_code == 0 else f"failed with {status_code}"
+        super().__init__(f"Caddy admin API {method} {path} {outcome}.{safe_detail}")
         self.method = method
         self.path = path
         self.status_code = status_code
@@ -66,10 +67,17 @@ class CaddyAdminClient:
             return {"dry_run": True, "method": "POST", "path": "/stop"}
         return self._request("POST", "/stop")
 
+    def upstream_health(self) -> list[dict[str, Any]]:
+        """GET /reverse_proxy/upstreams: address, num_requests, fails per upstream."""
+        result = self._request("GET", "/reverse_proxy/upstreams")
+        return result if isinstance(result, list) else []
+
     def reverse_proxy_upstreams(self) -> list[dict[str, Any]]:
         config = self.get_config()
         results: list[dict[str, Any]] = []
-        servers = config.get("apps", {}).get("http", {}).get("servers", {}) if isinstance(config, dict) else {}
+        servers = {}
+        if isinstance(config, dict):
+            servers = ((config.get("apps") or {}).get("http") or {}).get("servers") or {}
         for server_name, server in servers.items():
             for route_idx, route in enumerate(server.get("routes", [])):
                 hosts: list[str] = []
