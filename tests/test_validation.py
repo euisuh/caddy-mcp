@@ -19,3 +19,15 @@ def test_normalize_config_path_strips_slashes():
 def test_normalize_config_path_rejects_traversal():
     with pytest.raises(ValueError, match="must not contain"):
         normalize_config_path("../apps")
+
+
+def test_config_prefix_only_stripped_as_whole_segment():
+    assert normalize_config_path("config/apps") == "apps"
+    assert normalize_config_path("configs/x") == "configs/x"
+    assert normalize_config_path("config") == ""
+
+
+def test_config_path_rejects_query_and_fragment():
+    for bad in ("apps?x=1", "apps#frag"):
+        with pytest.raises(ValueError):
+            normalize_config_path(bad)

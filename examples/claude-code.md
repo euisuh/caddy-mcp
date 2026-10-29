@@ -12,3 +12,15 @@ Run as an SSE sidecar:
 MCP_TRANSPORT=sse MCP_HOST=127.0.0.1 MCP_PORT=8000 caddy-mcp
 claude mcp add caddy http://127.0.0.1:8000/sse
 ```
+
+Read-only (no `load_config`/`patch_config`/`stop_caddy`):
+
+```bash
+claude mcp add caddy --env CADDY_ADMIN_URL=http://127.0.0.1:2019 --env CADDY_READ_ONLY=1 -- caddy-mcp
+```
+
+With `MCP_BEARER_TOKEN` set on the SSE server:
+
+```bash
+claude mcp add --transport sse caddy http://127.0.0.1:8000/sse --header "Authorization: Bearer $MCP_BEARER_TOKEN"
+```

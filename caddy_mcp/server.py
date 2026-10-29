@@ -4,10 +4,24 @@ import os
 from typing import Any
 
 from fastmcp import FastMCP
+from starlette.middleware import Middleware
 
+from caddy_mcp.auth import BearerTokenAuthMiddleware, HealthCheckMiddleware
 from caddy_mcp.caddyfile import adapt_caddyfile, validate_caddyfile
 from caddy_mcp.client import CaddyAdminClient
 from caddy_mcp.validation import validate_json_object
+
+
+def _read_only() -> bool:
+    return os.environ.get("CADDY_READ_ONLY", "").strip().lower() in {"1", "true", "yes"}
+
+
+def get_sse_middleware() -> list[Middleware]:
+    middleware = [Middleware(HealthCheckMiddleware)]
+    token = os.environ.get("MCP_BEARER_TOKEN")
+    if token:
+        middleware.append(Middleware(BearerTokenAuthMiddleware, token=token))
+    return middleware
 
 
 def build_server() -> FastMCP:
@@ -25,6 +39,11 @@ def build_server() -> FastMCP:
         return client.reverse_proxy_upstreams()
 
     @mcp.tool
+    def get_upstream_health() -> list[dict[str, Any]]:
+        """Live reverse_proxy upstream status (address, in-flight requests, failures) via GET /reverse_proxy/upstreams."""
+        return client.upstream_health()
+
+    @mcp.tool
     def validate_caddyfile_text(caddyfile: str) -> dict[str, Any]:
         """Run `caddy validate` against Caddyfile text without loading it."""
         return validate_caddyfile(caddyfile)
@@ -34,20 +53,21 @@ def build_server() -> FastMCP:
         """Convert Caddyfile text to JSON. Defaults to dry_run command preview."""
         return adapt_caddyfile(caddyfile, dry_run=dry_run)
 
-    @mcp.tool
-    def load_config(config: dict, dry_run: bool = True) -> Any:
-        """Replace Caddy's active config via POST /load. Defaults to dry_run."""
-        return client.load_config(validate_json_object(config, "config"), dry_run=dry_run)
+    if not _read_only():
+        @mcp.tool
+        def load_config(config: dict, dry_run: bool = True) -> Any:
+            """Replace Caddy's active config via POST /load. Defaults to dry_run."""
+            return client.load_config(validate_json_object(config, "config"), dry_run=dry_run)
 
-    @mcp.tool
-    def patch_config(path: str, value: Any, dry_run: bool = True) -> Any:
-        """Patch a config subpath via PATCH /config/{path}. Defaults to dry_run."""
-        return client.patch_config(path, value, dry_run=dry_run)
+        @mcp.tool
+        def patch_config(path: str, value: Any, dry_run: bool = True) -> Any:
+            """Patch a config subpath via PATCH /config/{path}. Defaults to dry_run."""
+            return client.patch_config(path, value, dry_run=dry_run)
 
-    @mcp.tool
-    def stop_caddy(dry_run: bool = True) -> Any:
-        """Stop the Caddy process via POST /stop. Defaults to dry_run."""
-        return client.stop(dry_run=dry_run)
+        @mcp.tool
+        def stop_caddy(dry_run: bool = True) -> Any:
+            """Stop the Caddy process via POST /stop. Defaults to dry_run."""
+            return client.stop(dry_run=dry_run)
 
     return mcp
 
@@ -58,7 +78,7 @@ def main() -> None:
     if transport == "sse":
         host = os.environ.get("MCP_HOST", "127.0.0.1")
         port = int(os.environ.get("MCP_PORT", "8000"))
-        mcp.run(transport="sse", host=host, port=port)
+        mcp.run(transport="sse", host=host, port=port, middleware=get_sse_middleware())
     elif transport == "stdio":
         mcp.run()
     else:

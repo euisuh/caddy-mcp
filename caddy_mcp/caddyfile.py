@@ -12,13 +12,18 @@ def _run_caddy(args: list[str], caddyfile: str) -> subprocess.CompletedProcess[s
         handle.write(caddyfile)
         path = handle.name
     try:
-        return subprocess.run(
-            ["caddy", *args, "--config", path],
-            check=False,
-            capture_output=True,
-            text=True,
-            timeout=15,
-        )
+        try:
+            return subprocess.run(
+                ["caddy", *args, "--config", path, "--adapter", "caddyfile"],
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=15,
+            )
+        except FileNotFoundError:
+            return subprocess.CompletedProcess(args, 127, "", "caddy binary not found on PATH")
+        except subprocess.TimeoutExpired:
+            return subprocess.CompletedProcess(args, 124, "", "caddy timed out after 15s")
     finally:
         Path(path).unlink(missing_ok=True)
 
@@ -35,7 +40,7 @@ def validate_caddyfile(caddyfile: str) -> dict[str, Any]:
 
 def adapt_caddyfile(caddyfile: str, dry_run: bool = True) -> dict[str, Any]:
     if dry_run:
-        return {"dry_run": True, "command": ["caddy", "adapt", "--config", "<tempfile>"], "caddyfile": caddyfile}
+        return {"dry_run": True, "command": ["caddy", "adapt", "--config", "<tempfile>", "--adapter", "caddyfile"], "caddyfile": caddyfile}
     completed = _run_caddy(["adapt"], caddyfile)
     if completed.returncode != 0:
         return {
@@ -44,4 +49,7 @@ def adapt_caddyfile(caddyfile: str, dry_run: bool = True) -> dict[str, Any]:
             "stderr": completed.stderr,
             "returncode": completed.returncode,
         }
-    return {"ok": True, "config": json.loads(completed.stdout)}
+    try:
+        return {"ok": True, "config": json.loads(completed.stdout)}
+    except ValueError:
+        return {"ok": False, "stdout": completed.stdout, "stderr": "caddy adapt output was not JSON", "returncode": 0}

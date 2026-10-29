@@ -45,3 +45,22 @@ def test_errors_are_actionable_and_redacted():
         client.get_config()
     assert "GET /config/ failed with 500" in str(exc.value)
     assert "secret-token" not in str(exc.value)
+
+
+@respx.mock
+def test_unreachable_admin_api_is_reported():
+    respx.get("http://caddy.test/config/").mock(side_effect=httpx.ConnectError("refused"))
+    with pytest.raises(CaddyAPIError, match="was unreachable"):
+        CaddyAdminClient("http://caddy.test").get_config()
+
+
+@respx.mock
+def test_non_json_body_is_wrapped():
+    respx.post("http://caddy.test/stop").mock(return_value=httpx.Response(200, text="bye"))
+    assert CaddyAdminClient("http://caddy.test").stop(dry_run=False) == {"ok": True, "body": "bye"}
+
+
+@respx.mock
+def test_upstream_health_returns_list_and_tolerates_other_shapes():
+    respx.get("http://caddy.test/reverse_proxy/upstreams").mock(return_value=httpx.Response(200, json=None))
+    assert CaddyAdminClient("http://caddy.test").upstream_health() == []
