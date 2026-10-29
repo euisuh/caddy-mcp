@@ -1,10 +1,10 @@
 {
   "mcpServers": {
     "caddy": {
-      "command": "/path/to/caddy-mcp/.venv/bin/python",
-      "args": ["/path/to/caddy-mcp/caddy_mcp/server.py"],
+      "command": "/path/to/caddy-mcp/.venv/bin/caddy-mcp",
       "env": {
-        "CADDY_ADMIN_URL": "http://127.0.0.1:2019"
+        "CADDY_ADMIN_URL": "http://127.0.0.1:2019",
+        "CADDY_READ_ONLY": "1"
       }
     }
   }

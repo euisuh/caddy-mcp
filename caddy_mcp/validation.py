@@ -15,11 +15,15 @@ def normalize_admin_url(value: str | None) -> str:
 
 def normalize_config_path(path: str | None = None) -> str:
     clean = (path or "").strip().strip("/")
-    if ".." in clean.split("/"):
+    if any(ch in clean for ch in "?#"):
+        raise ValueError("config path must not contain '?' or '#'")
+    segments = clean.split("/") if clean else []
+    if ".." in segments:
         raise ValueError("config path must not contain traversal segments")
-    if clean.startswith("config"):
-        clean = clean.removeprefix("config").strip("/")
-    return clean
+    # Accept "config/apps/http" as well as "apps/http"; "configs" is a different key.
+    if segments and segments[0] == "config":
+        segments = segments[1:]
+    return "/".join(segments)
 
 
 def validate_json_object(value: object, name: str = "value") -> dict:
